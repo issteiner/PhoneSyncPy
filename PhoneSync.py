@@ -1,21 +1,13 @@
 #!/usr/bin/env python3
 
 import datetime
+import getpass
 import hashlib
 import json
 import os
 import sys
+
 from gi.repository import Gio
-import getpass
-
-# myfile1 = Gio.File.parse_name('/tmp/alma.txt')
-# myfile2=Gio.File.parse_name('/run/user/112248/gvfs/mtp:host=%5Busb%3A003%2C002%5D/Phone/Documents/Actual/MindenEgyeb.txt')
-# myfile3=Gio.File.parse_name('/run/user/112248/gvfs/mtp:host=%5Busb%3A003%2C002%5D/Phone/Documents/Actual/Alma.txt')
-# myfile4=Gio.File.parse_name('/run/user/112248/gvfs/mtp:host=%5Busb%3A003%2C002%5D/Phone/Documents/Actual/UjDir/')
-# myfile1.copy(myfile3, flags, None, None, None)
-#
-# myfile4.make_directory()
-
 
 GIO_FLAGS = Gio.FileCopyFlags(Gio.FileCopyFlags.OVERWRITE)
 SCRIPT_PATH = sys.argv[0]
@@ -64,8 +56,6 @@ DIRS_TO_PHONE = ["Private/0_Privat/Projektek/0_Folyo/HazFelujitas_2015-",
                  "Private/0_Privat/Aktualis/CsinalniValo",
                  "Private/0_Privat/Ingatlanok",
                  "Common/Scripts"]
-
-# DIRS_TO_PHONE = ["Temp/PhoneSyncTest"]
 
 DIRS_FROM_PHONE = ["DCIM",
                    "Download",
@@ -158,6 +148,7 @@ class FileDataStore(object):
 
 
 def copy_to_phone(dirs_to_copy, pc_base_dir_path, phone_transfer_dir_path):
+    print("Copying files from the own HDD to the phone...")
     for act_dir in dirs_to_copy:
         act_dir_full_path = os.path.join(pc_base_dir_path, act_dir)
         fileData = FileDataStore(act_dir_full_path)
@@ -192,22 +183,14 @@ def copy_to_phone(dirs_to_copy, pc_base_dir_path, phone_transfer_dir_path):
 
 
 def copy_from_phone(dirs_to_copy, phone_base_dir_path, pc_phone_actual_dir_path):
+    print("Copying files from phone to the own HDD...")
     for act_dir in dirs_to_copy:
         file_container = []
         act_dir_full_path = os.path.join(phone_base_dir_path, act_dir)
-        dir_container = [act_dir_full_path]
         for dirname, subdirs, filelist in os.walk(act_dir_full_path):
             for filename in filelist:
                 file_full_path = os.path.join(dirname, filename)
                 file_container.append(file_full_path)
-            for dir_name in subdirs:
-                dir_full_path = os.path.join(dirname, dir_name)
-                dir_container.append(dir_full_path)
-        for act_dir in dir_container:
-            pc_act_dir_full_path = act_dir.replace(phone_base_dir_path, pc_phone_actual_dir_path)
-            pc_act_gio_dir = Gio.File.parse_name(pc_act_dir_full_path)
-            if not pc_act_gio_dir.query_exists():
-                pc_act_gio_dir.make_directory_with_parents()
         for act_file in file_container:
             act_gio_file = Gio.File.parse_name(act_file)
             pc_act_file_full_path = act_file.replace(phone_base_dir_path, pc_phone_actual_dir_path)
@@ -240,7 +223,7 @@ def main():
 # find ${PC_PHONE_ACTUAL_DIR} -type f -size 0 -delete 2>>${OUTLOG}
 # find ${PC_PHONE_ACTUAL_DIR} -type d -empty -delete 2>>${OUTLOG}
 
-# copy_to_phone(DIRS_TO_PHONE, PC_DOC_DIR, PHONE_TRANSFER_DIR)
+    copy_to_phone(DIRS_TO_PHONE, PC_DOC_DIR, PHONE_TRANSFER_DIR)
 
 if __name__ == '__main__':
     main()
