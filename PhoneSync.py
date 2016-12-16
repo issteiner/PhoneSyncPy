@@ -9,6 +9,9 @@ import sys
 
 from gi.repository import Gio
 
+sys.path.append("../DupliSeek")
+import dupliSeek
+
 GIO_FLAGS = Gio.FileCopyFlags(Gio.FileCopyFlags.OVERWRITE)
 SCRIPT_PATH = sys.argv[0]
 SCRIPT_DIR = os.path.realpath(os.path.dirname(SCRIPT_PATH))
@@ -200,30 +203,31 @@ def copy_from_phone(dirs_to_copy, phone_base_dir_path, pc_phone_actual_dir_path)
                 pc_act_gio_file_dir.make_directory_with_parents()
             act_gio_file.copy(pc_act_gio_file, GIO_FLAGS, None, None, None)
 
+
+def dupliseek_on_copied_files(act_dir):
+    print("Searching for duplicate files, and removing found duplicates in the copied files/directories on the HDD...")
+    sys.argv = ['dupliSeek.py', '-v', '-p', '-r', PC_DOC_DIR, act_dir]
+    dupliSeek.main()
+
+
+def clean_zero_files_empty_dirs(actual_dir):
+    print("Deleting zero size files and empty directories in the copied files/directories on the HDD...")
+    for dirname, subdirs, filelist in os.walk(actual_dir):
+        for filename in filelist:
+            file_full_path = os.path.join(dirname, filename)
+            if os.path.getsize(file_full_path) == 0:
+                os.remove(file_full_path)
+    for dirname, subdirs, filelist in os.walk(actual_dir):
+        if subdirs == [] and filelist == []:
+            os.removedirs(dirname)
+
+
 def main():
     copy_from_phone(DIRS_FROM_PHONE, PHONE_BASE_DIR, PC_PHONE_ACTUAL_DIR)
-
-
-# for dir in ${DIRS_FROM_PHONE}
-# do
-#     only_log "copy_fromto_phone ${PHONE_BASE_DIR} ${dir} ${PC_PHONE_ACTUAL_DIR}"
-#     copy_fromto_phone ${PHONE_BASE_DIR} ${dir} ${PC_PHONE_ACTUAL_DIR}
-# done
-#
-# print_and_log "Searching for duplicate files, and removing found duplicate files in the copied files/directories on the HDD..."
-# only_log "./dupliSeek.py -v -p -r ${PC_DOC_DIR} ${PC_PHONE_ACTUAL_DIR}"
-#
-# cd /home/ethsri/Documents/Common/Scripts/DupliSeek
-# ./dupliSeek.py -v -p -r ${PC_DOC_DIR} ${PC_PHONE_ACTUAL_DIR} >>${OUTLOG} 2>&1
-#
-# print_and_log "Deleting zero size files and empty directories in the copied files/directories on the HDD..."
-# only_log "find ${PC_PHONE_ACTUAL_DIR} -type f -size 0 -delete"
-# only_log "find ${PC_PHONE_ACTUAL_DIR} -type d -empty -delete"
-#
-# find ${PC_PHONE_ACTUAL_DIR} -type f -size 0 -delete 2>>${OUTLOG}
-# find ${PC_PHONE_ACTUAL_DIR} -type d -empty -delete 2>>${OUTLOG}
-
+    dupliseek_on_copied_files(PC_PHONE_ACTUAL_DIR)
+    clean_zero_files_empty_dirs(PC_PHONE_ACTUAL_DIR)
     copy_to_phone(DIRS_TO_PHONE, PC_DOC_DIR, PHONE_TRANSFER_DIR)
+
 
 if __name__ == '__main__':
     main()
