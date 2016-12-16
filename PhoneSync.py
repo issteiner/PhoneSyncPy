@@ -169,19 +169,21 @@ def copy_to_phone(dirs_to_copy, pc_base_dir_path, phone_transfer_dir_path):
                 phone_act_gio_dir.delete()
 
         for act_dir in dirs_to_add:
-            phone_act_dir = act_dir.replace(pc_base_dir_path, phone_transfer_dir_path)
-            phone_act_gio_dir = Gio.File.parse_name(phone_act_dir)
-            if not phone_act_gio_dir.query_exists():
-                phone_act_gio_dir.make_directory_with_parents()
+            if '/.' not in act_dir:
+                phone_act_dir = act_dir.replace(pc_base_dir_path, phone_transfer_dir_path)
+                phone_act_gio_dir = Gio.File.parse_name(phone_act_dir)
+                if not phone_act_gio_dir.query_exists():
+                    phone_act_gio_dir.make_directory_with_parents()
 
         for act_file in files_to_update:
-            act_gio_file = Gio.File.parse_name(act_file)
-            phone_act_file = act_file.replace(pc_base_dir_path, phone_transfer_dir_path)
-            phone_act_gio_file = Gio.File.parse_name(phone_act_file)
-            phone_act_gio_file_dir = phone_act_gio_file.get_parent()
-            if not phone_act_gio_file_dir.query_exists():
-                phone_act_gio_file_dir.make_directory_with_parents()
-            act_gio_file.copy(phone_act_gio_file, GIO_FLAGS, None, None, None)
+            if '/.' not in act_file:
+                act_gio_file = Gio.File.parse_name(act_file)
+                phone_act_file = act_file.replace(pc_base_dir_path, phone_transfer_dir_path)
+                phone_act_gio_file = Gio.File.parse_name(phone_act_file)
+                phone_act_gio_file_dir = phone_act_gio_file.get_parent()
+                if not phone_act_gio_file_dir.query_exists():
+                    phone_act_gio_file_dir.make_directory_with_parents()
+                act_gio_file.copy(phone_act_gio_file, GIO_FLAGS, None, None, None)
         fileData.save_file_and_dir_data(FILEDATA_DIR)
 
 
