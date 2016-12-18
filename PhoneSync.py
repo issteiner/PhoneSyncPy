@@ -4,6 +4,7 @@ import datetime
 import getpass
 import hashlib
 import json
+import logging
 import os
 import sys
 
@@ -21,7 +22,37 @@ ACT_DATE_TIME = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 FILEDATA_DIR = os.path.join(SCRIPT_DIR, "FileData")
 LOGDIR = os.path.join(SCRIPT_DIR, "Logs")
 OUTLOG = "{}/{}_{}.log".format(LOGDIR, SCRIPT_NAME, ACT_DATE_TIME)
-ERRORLOG = OUTLOG.rstrip('log') + "err"
+OUTLOG_PATH = os.path.join(LOGDIR, OUTLOG)
+
+
+class StreamToLogger(object):
+    """
+    Fake file-like stream object that redirects writes to a logger instance
+    """
+
+    def __init__(self, logger, loglevel=logging.INFO):
+        self.logger = logger
+        self.loglevel = loglevel
+
+    def write(self, buf):
+        for line in buf.rstrip().splitlines():
+            self.logger.log(self.loglevel, line.rstrip())
+
+    def flush(self):
+        pass
+
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+file_handler = logging.FileHandler(OUTLOG_PATH)
+file_handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(message)s')
+file_handler.setFormatter(formatter)
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+streamToLogger = StreamToLogger(logger, logging.DEBUG)
 
 ACT_USER = getpass.getuser()
 ACT_USER_ID = os.getuid()
@@ -31,7 +62,7 @@ PC_PHONE_DIR = os.path.join(PC_HOME_DIR, "PhoneTransfer")
 
 for directory in [FILEDATA_DIR, LOGDIR, PC_PHONE_DIR]:
     if not os.path.isdir(directory):
-        print("Creating directory {}...".format(directory))
+        logger.info("Creating directory {}...".format(directory))
         os.makedirs(directory)
 
 PC_PHONE_ACTUAL_DIR = os.path.join(PC_PHONE_DIR, "FromPhone_" + ACT_DATE_TIME)
@@ -39,16 +70,16 @@ PC_PHONE_ACTUAL_DIR = os.path.join(PC_PHONE_DIR, "FromPhone_" + ACT_DATE_TIME)
 GVS_PATH = os.path.join("/run/user/{}".format(ACT_USER_ID), "gvfs")
 PHONE_MTP_DIRS = os.listdir(GVS_PATH)
 if len(PHONE_MTP_DIRS) > 1:
-    print("ERROR! More than one phone is connected/mounted. Fix it and try again!")
+    logger.error("ERROR! More than one phone is connected/mounted. Fix it and try again!")
     sys.exit(1)
 elif len(PHONE_MTP_DIRS) == 0:
-    print("ERROR! Phone is not connected/mounted. Fix it and try again!")
+    logger.error("ERROR! Phone is not connected/mounted. Fix it and try again!")
     sys.exit(1)
 
 PHONE_MTP_DIR = PHONE_MTP_DIRS[0]
 PHONE_BASE_DIR = os.path.join(GVS_PATH, PHONE_MTP_DIR, "Phone")
 if not os.path.isdir(PHONE_BASE_DIR):
-    print("ERROR! It is not allowed to read to / write from phone's memory. Fix it and try again!")
+    logger.error("ERROR! It is not allowed to read to / write from phone's memory. Fix it and try again!")
     sys.exit(1)
 
 PHONE_DOC_DIR = os.path.join(PHONE_BASE_DIR, "Documents")
@@ -57,6 +88,7 @@ PHONE_TRANSFER_DIR = os.path.join(PHONE_DOC_DIR, "0_Transfer")
 DIRS_TO_PHONE = ["Private/0_Privat/Projektek/0_Folyo/HazFelujitas_2015-",
                  "Private/6_AlkalmazottTudomany",
                  "Private/0_Privat/Aktualis/CsinalniValo",
+                 "Private/0_Privat/Infok",
                  "Private/0_Privat/Ingatlanok",
                  "Common/Scripts"]
 
@@ -64,7 +96,6 @@ DIRS_FROM_PHONE = ["DCIM",
                    "Download",
                    "Documents/Actual",
                    "Documents/1_BackTransfer"]
-
 
 class FileDataStore(object):
     def __init__(self, dir_path):
@@ -151,7 +182,7 @@ class FileDataStore(object):
 
 
 def copy_to_phone(dirs_to_copy, pc_base_dir_path, phone_transfer_dir_path):
-    print("Copying files from the own HDD to the phone...")
+    logger.info("Copying files from the own HDD to the phone...")
     for act_dir in dirs_to_copy:
         act_dir_full_path = os.path.join(pc_base_dir_path, act_dir)
         fileData = FileDataStore(act_dir_full_path)
@@ -160,12 +191,14 @@ def copy_to_phone(dirs_to_copy, pc_base_dir_path, phone_transfer_dir_path):
             phone_act_file = act_file.replace(pc_base_dir_path, phone_transfer_dir_path)
             phone_act_gio_file = Gio.File.parse_name(phone_act_file)
             if phone_act_gio_file.query_exists():
+                logger.debug("Deleting file {} on phone...".format(phone_act_file))
                 phone_act_gio_file.delete()
 
         for act_dir in dirs_to_delete:
             phone_act_dir = act_dir.replace(pc_base_dir_path, phone_transfer_dir_path)
             phone_act_gio_dir = Gio.File.parse_name(phone_act_dir)
             if phone_act_gio_dir.query_exists():
+                logger.debug("Removing directory on phone {}/ ...".format(phone_act_dir))
                 phone_act_gio_dir.delete()
 
         for act_dir in dirs_to_add:
@@ -173,6 +206,7 @@ def copy_to_phone(dirs_to_copy, pc_base_dir_path, phone_transfer_dir_path):
                 phone_act_dir = act_dir.replace(pc_base_dir_path, phone_transfer_dir_path)
                 phone_act_gio_dir = Gio.File.parse_name(phone_act_dir)
                 if not phone_act_gio_dir.query_exists():
+                    logger.debug("Creating directory on phone {}/ ...".format(phone_act_dir))
                     phone_act_gio_dir.make_directory_with_parents()
 
         for act_file in files_to_update:
@@ -183,12 +217,13 @@ def copy_to_phone(dirs_to_copy, pc_base_dir_path, phone_transfer_dir_path):
                 phone_act_gio_file_dir = phone_act_gio_file.get_parent()
                 if not phone_act_gio_file_dir.query_exists():
                     phone_act_gio_file_dir.make_directory_with_parents()
+                logger.debug("Copying file {} to phone {} ...".format(act_file, phone_act_file))
                 act_gio_file.copy(phone_act_gio_file, GIO_FLAGS, None, None, None)
         fileData.save_file_and_dir_data(FILEDATA_DIR)
 
 
 def copy_from_phone(dirs_to_copy, phone_base_dir_path, pc_phone_actual_dir_path):
-    print("Copying files from phone to the own HDD...")
+    logger.info("Copying files from phone to the own HDD...")
     for act_dir in dirs_to_copy:
         file_container = []
         act_dir_full_path = os.path.join(phone_base_dir_path, act_dir)
@@ -201,26 +236,36 @@ def copy_from_phone(dirs_to_copy, phone_base_dir_path, pc_phone_actual_dir_path)
             pc_act_file_full_path = act_file.replace(phone_base_dir_path, pc_phone_actual_dir_path)
             pc_act_gio_file = Gio.File.parse_name(pc_act_file_full_path)
             pc_act_gio_file_dir = pc_act_gio_file.get_parent()
+            pc_act_file_dir_path = os.path.dirname(pc_act_file_full_path)
             if not pc_act_gio_file_dir.query_exists():
+                logger.debug("Creating directory {}/ ...".format(pc_act_file_dir_path))
                 pc_act_gio_file_dir.make_directory_with_parents()
+            logger.debug("Copying {} to {}/ ...".format(act_file, pc_act_file_dir_path))
             act_gio_file.copy(pc_act_gio_file, GIO_FLAGS, None, None, None)
 
 
 def dupliseek_on_copied_files(act_dir):
-    print("Searching for duplicate files, and removing found duplicates in the copied files/directories on the HDD...")
+    logger.info(
+        "Searching for duplicate files, and removing found duplicates in the copied files/directories on the HDD...")
     sys.argv = ['dupliSeek.py', '-v', '-p', '-r', PC_DOC_DIR, act_dir]
+    sys.stdout = streamToLogger
+    sys.stderr = streamToLogger
     dupliSeek.main()
+    sys.stdout = sys.__stdout__
+    sys.stderr = sys.__stderr__
 
 
 def clean_zero_files_empty_dirs(actual_dir):
-    print("Deleting zero size files and empty directories in the copied files/directories on the HDD...")
+    logger.info("Deleting zero size files and empty directories in the copied files/directories on the HDD...")
     for dirname, subdirs, filelist in os.walk(actual_dir):
         for filename in filelist:
             file_full_path = os.path.join(dirname, filename)
             if os.path.getsize(file_full_path) == 0:
+                logger.debug("Deleting {} ...".format(file_full_path))
                 os.remove(file_full_path)
     for dirname, subdirs, filelist in os.walk(actual_dir):
         if subdirs == [] and filelist == []:
+            logger.debug("Removing directory {}/ ...".format(dirname))
             os.removedirs(dirname)
 
 
