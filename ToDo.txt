@@ -4,6 +4,7 @@
 
 - If DIRS_TO_PHONE changes the old directories stay on phone
     To fix forget to track syncing in files in HDD, get info from phone instead
+    For it we should copy with file attributes
 
 TO FIX
 ======
@@ -11,5 +12,7 @@ TO FIX
 - gi._glib.GError: libmtp error:  Could not send object info
 during copy_to_phone
     Worked around by avoiding dealing with hidden files
+
+- there is logfile even if no logging has happened
 
 

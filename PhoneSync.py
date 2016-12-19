@@ -10,14 +10,15 @@ import sys
 
 from gi.repository import Gio
 
-sys.path.append("../DupliSeek")
-import dupliSeek
-
 GIO_FLAGS = Gio.FileCopyFlags(Gio.FileCopyFlags.OVERWRITE)
 SCRIPT_PATH = sys.argv[0]
 SCRIPT_DIR = os.path.realpath(os.path.dirname(SCRIPT_PATH))
+DUPLISEEK_DIR = os.path.join(os.path.dirname(SCRIPT_DIR), "DupliSeek")
 SCRIPT_NAME = os.path.basename(SCRIPT_PATH).rstrip('.py')
 ACT_DATE_TIME = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+
+sys.path.append(DUPLISEEK_DIR)
+import dupliSeek
 
 FILEDATA_DIR = os.path.join(SCRIPT_DIR, "FileData")
 LOGDIR = os.path.join(SCRIPT_DIR, "Logs")
@@ -70,16 +71,16 @@ PC_PHONE_ACTUAL_DIR = os.path.join(PC_PHONE_DIR, "FromPhone_" + ACT_DATE_TIME)
 GVS_PATH = os.path.join("/run/user/{}".format(ACT_USER_ID), "gvfs")
 PHONE_MTP_DIRS = os.listdir(GVS_PATH)
 if len(PHONE_MTP_DIRS) > 1:
-    logger.error("ERROR! More than one phone is connected/mounted. Fix it and try again!")
+    print("ERROR! More than one phone is connected/mounted. Fix it and try again!")
     sys.exit(1)
 elif len(PHONE_MTP_DIRS) == 0:
-    logger.error("ERROR! Phone is not connected/mounted. Fix it and try again!")
+    print("ERROR! Phone is not connected/mounted. Fix it and try again!")
     sys.exit(1)
 
 PHONE_MTP_DIR = PHONE_MTP_DIRS[0]
 PHONE_BASE_DIR = os.path.join(GVS_PATH, PHONE_MTP_DIR, "Phone")
 if not os.path.isdir(PHONE_BASE_DIR):
-    logger.error("ERROR! It is not allowed to read to / write from phone's memory. Fix it and try again!")
+    print("ERROR! It is not allowed to read to / write from phone's memory. Fix it and try again!")
     sys.exit(1)
 
 PHONE_DOC_DIR = os.path.join(PHONE_BASE_DIR, "Documents")
@@ -96,6 +97,7 @@ DIRS_FROM_PHONE = ["DCIM",
                    "Download",
                    "Documents/Actual",
                    "Documents/1_BackTransfer"]
+
 
 class FileDataStore(object):
     def __init__(self, dir_path):
